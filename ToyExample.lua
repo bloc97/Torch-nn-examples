@@ -7,7 +7,7 @@ local dtype = 'torch.FloatTensor'
 
 local useOpenCl = true;
 
---If use opencl, change the tensor dtype to "ClTensor";
+--If we are using opencl, we change the tensor dtype to "ClTensor" using :cl();
 if (useOpenCl) then
 	require 'cltorch'
 	require 'clnn'
