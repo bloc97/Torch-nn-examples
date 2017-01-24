@@ -29,18 +29,18 @@ mlp:add(nn.Linear(5,1))
 --Set the network to the dtype
 mlp:type(dtype)
 
---Create training data
+--Create training data. In this case, we will train a XOR Gate.
 x = torch.Tensor({
-    {1,0},
-    {1,1},
+    {0,0},
     {0,1},
-    {0,0}
+    {1,0},
+    {1,1}
 }):type(dtype)
 
 
 y = torch.Tensor({
-    {1},
     {0},
+    {1},
     {1},
     {0}
 }):type(dtype)
