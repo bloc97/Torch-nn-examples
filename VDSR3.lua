@@ -21,59 +21,48 @@ end
 
 --Create Loss Function
 local criterion = nn.MSECriterion():type(dtype)
---local criterion = nn.AbsCriterion():type(dtype)
-criterion.sizeAverage = false
+criterion.sizeAverage = true
 
 --Create VDSR conv neural network
 --http://cv.snu.ac.kr/research/VDSR/VDSR_CVPR2016.pdf
 vdsrcnn = nn.Sequential()
 
-local getBias = function(nnl)
-  return nnl.bias
+vdsrcnn:add(nn.SpatialConvolutionMM(1, 64, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.ReLU(true)) --ReLU
+vdsrcnn:add(nn.SpatialConvolutionMM(64, 64, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.ReLU(true))
+vdsrcnn:add(nn.SpatialConvolutionMM(64, 64, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.ReLU(true))
+vdsrcnn:add(nn.SpatialConvolutionMM(64, 64, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.ReLU(true))
+vdsrcnn:add(nn.SpatialConvolutionMM(64, 64, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.ReLU(true))
+vdsrcnn:add(nn.SpatialConvolutionMM(64, 64, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.ReLU(true))
+vdsrcnn:add(nn.SpatialConvolutionMM(64, 64, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.ReLU(true))
+vdsrcnn:add(nn.SpatialConvolutionMM(64, 64, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.ReLU(true))
+vdsrcnn:add(nn.SpatialConvolutionMM(64, 64, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.ReLU(true))
+vdsrcnn:add(nn.SpatialConvolutionMM(64, 64, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.ReLU(true))
+vdsrcnn:add(nn.SpatialConvolutionMM(64, 64, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.ReLU(true))
+vdsrcnn:add(nn.SpatialConvolutionMM(64, 1, 3, 3, 1, 1, 1, 1))
+vdsrcnn:add(nn.CAdd(1))
+
+local getBias = function(module)
+  return module.bias
 end
-
-local InConvolution = function()
-	return nn.SpatialConvolutionMM(1, 64, 3, 3, 1, 1, 1, 1)--:init('weight', nninit.normal, 0, math.sqrt(2/9))
-														   --:init(getBias, nninit.constant, 0)
-end
-
-local HiddenConvolution = function()
-	return nn.SpatialConvolutionMM(64, 64, 3, 3, 1, 1, 1, 1)--:init('weight', nninit.normal, 0, math.sqrt(2/9/64))
-														    --:init(getBias, nninit.constant, 0)
-end
-
-local OutConvolution = function()
-	return nn.SpatialConvolutionMM(64, 1, 3, 3, 1, 1, 1, 1)--:init('weight', nninit.normal, 0, math.sqrt(2/9/64))
-														   --:init(getBias, nninit.constant, 0)
-end
-
-local nonLinear = function()
-	return nn.ELU(0.1, false)
-	--return nn.ReLU(true)
-end
-
-vdsrcnn:add(InConvolution())
-vdsrcnn:add(nonLinear()) --ReLU
-
-for nnlayers = 1, 8 do
-
-	vdsrcnn:add(HiddenConvolution())
-	vdsrcnn:add(nonLinear())
-
-end
-
-vdsrcnn:add(OutConvolution())
-
 
 local function weights_init(m)
    local name = torch.type(m)
    if name:find('Convolution') then
       m:init('weight', nninit.kaiming, {dist = 'normal', gain = {'lrelu', leakiness = 0.1}})
-      --m:init('weight', nninit.kaiming, {dist = 'normal', gain = {'relu'}})
       --m:init('weight', nninit.kaiming, {dist = 'uniform', gain = {'relu'}})
-       --:init('weight', nninit.mulConstant, 0.9)
+       --:init('weight', nninit.mulConstant, 9/10)
        --:init('weight', nninit.addNormal, 0, 0.01)
-	   --m:init('weight', nninit.normal, 0, math.sqrt(2/9/64))
        :init(getBias, nninit.constant, 0)
    end
 end
@@ -122,31 +111,20 @@ end
 
 local hr = {}
 local lr = {}
---local qr = {}
 
 local imagesn = 80
 
 
 for k=1, imagesn do
-	local HRImgCropped = image.crop(image.load("train/" .. k .. ".png", 3, "float"),0,0,100,100)
-	local LRImgCropped = image.scale(image.scale(HRImgCropped, "*1/2"), "*2", "bicubic")
-	--local QRImgCropped = image.scale(image.scale(HRImgCropped, "*1/4"), "*4", "bicubic")
-
-	hr[k] = image.rgb2y(HRImgCropped)
+	hr[k] = image.rgb2y(image.crop(image.load("train/" .. k .. ".png", 3, "float"),0,0,100,100))
 	hr[k+imagesn] = image.hflip(hr[k])
 	hr[k+2*imagesn] = image.vflip(hr[k])
 	hr[k+3*imagesn] = image.rotate(hr[k], 90)
 	--lr[k] = image.rgb2y(image.load("train/" .. k .. ".png", 3, "float"))
-	
-	lr[k] = image.rgb2y(LRImgCropped)
+	lr[k] = image.rgb2y(image.scale(image.scale(image.crop(image.load("train/" .. k .. ".png", 3, "float"),0,0,100,100), "*1/2"), "*2"))
 	lr[k+imagesn] = image.hflip(lr[k])
 	lr[k+2*imagesn] = image.vflip(lr[k])
 	lr[k+3*imagesn] = image.rotate(lr[k], 90)
-	
-	--qr[k] = image.rgb2y(QRImgCropped)
-	--qr[k+imagesn] = image.hflip(qr[k])
-	--qr[k+2*imagesn] = image.vflip(qr[k])
-	--qr[k+3*imagesn] = image.rotate(qr[k], 90)
 
 end
 
@@ -160,7 +138,6 @@ end
 
 local x;
 local y;
---local q;
 
 local batchsize = 10
 local minibatch = (imagesn*4)/batchsize --#Of iterations before going through entire batch
@@ -170,38 +147,35 @@ function setBatch(iter)
 	local start = batch*batchsize+1
 	local eloc = batch*batchsize+batchsize
 	
-	--q = TableToTensor(subrange(qr, start, eloc)):type(dtype)
 	x = TableToTensor(subrange(lr, start, eloc)):type(dtype)
 	y = TableToTensor(subrange(hr, start, eloc)):type(dtype)
 
 end
 
+
+
 setBatch(0)
 
+
 --Initialise training variables
-
 params, gradParams = vdsrcnn:getParameters()
-
 local optimState = {learningRate = 0.1, weightDecay = 0.0001, momentum = 0.9}
---local optimState = {learningRate = 0.1, momentum = 0.9}
---0.02
---0.001
-local cnorm = 0.001 * optimState.learningRate --Gradient Clipping
-
-local showlossevery = 100;
 local loss = 1;
+local showlossevery = 100;
+--0.02
+local cnorm = 0.01 * optimState.learningRate --Gradient Clipping
+
 
 --Training function
 function f(params)
 
-	--vdsrcnn:zeroGradParameters();
-	gradParams:zero()
+	vdsrcnn:zeroGradParameters();
+
 	--Forward the x values
 	--local out = torch.add(vdsrcnn:forward(x), x)
 	--Compute the loss, add the network output to LR image
-	local imagein = x:clone():csub(0.5)
 	
-	local out = vdsrcnn:forward(imagein)
+	local out = vdsrcnn:forward(x)
 	local diff = y:clone():csub(x)
 	
 	loss = criterion:forward(out, diff)
@@ -210,21 +184,20 @@ function f(params)
 	local lrate = optimState.learningRate
 
 	local grad_out = criterion:backward(out, diff)
-	
-	--grad_out:clamp(-cnorm/lrate, cnorm/lrate)
-	
+	grad_out:clamp(-cnorm/lrate, cnorm/lrate)
+
 	--Zero the previous gradient, and backpropagate the new gradient
-	
-	local grad_in = vdsrcnn:backward(imagein, grad_out):clamp(-cnorm/lrate, cnorm/lrate)
+	gradParams:zero()
+	vdsrcnn:backward(x, grad_out)
 	
 		-- normalize gradients and f(X)
-	--gradParams:div(1/3) -- division by batch_size
-	--loss = loss * 3 -- division by batch_size
+	--gradParams:div(batchsize) -- division by batch_size
+	--loss = loss/batchsize -- division by batch_size
 	
 	
 	gradParams:clamp(-cnorm/lrate, cnorm/lrate) --Clip the gradients
-	--grad_in:clamp(-cnorm/lrate, cnorm/lrate)
-	--params, gradParams = vdsrcnn:getParameters()
+	
+	
 
 	--Return the loss and new gradient parameters to the optim.adam() function
 	return loss, gradParams
@@ -235,18 +208,26 @@ local decreaseRate = 0.1
 --local firstdiff = vdsrcnn:forward(x)
 --image.save("test/Epoch" .. 0 .. "resid.png", firstdiff:add(0.5))
 
-local Truthdiff = hr[1]:clone():csub(lr[1])
-image.save("test/Tresid.png", Truthdiff:add(0.5))
 
---local Halfdiff = lr[1]:clone():csub(qr[1])
---image.save("test/Hresid.png", Halfdiff:add(0.5))
+
+local trainLRY = image.rgb2y(image.load("test.png", 3, "float")):type(dtype)
+local trainLR = image.rgb2yuv(image.load("test.png", 3, "float")):type(dtype)
+local trainDiff = vdsrcnn:forward(trainLRY)
+
+local trainSR = trainLR
+
+trainSR[1]:add(trainDiff[1])
+
+image.save("SR.png", image.yuv2rgb(trainSR))
+
+
 
 local epoch = 0;
 
 --For 500 iters
-for iter = 1, 60000 do
+for iter = 1, 40000 do
 	--Use torch-optim
-	if (iter%20000 == 0) then
+	if (iter%500 == 0) then
 		optimState.learningRate = optimState.learningRate * decreaseRate
 		print("Reducing learning rate by a factor of " .. decreaseRate .. ". New learning rate: " .. optimState.learningRate)
 	end
@@ -254,17 +235,13 @@ for iter = 1, 60000 do
 	
 	if ((iter%showlossevery == 0) or (iter%20 == 0 and iter < 200) or (iter < 20)) then
 		print("Epoch " .. epoch .. " Iteration " .. iter .. " Training Loss " .. loss)
-		local epochdiff = vdsrcnn:forward(lr[1]:type(dtype))
-		image.save("test/" .. iter .. "resid.png", epochdiff:add(0.5))
+		--local epochdiff = vdsrcnn:forward(trainLR)
+		--image.save("test/Iter" .. iter .. "resid.png", image.yuv2rgb(epochdiff):add(0.5))
 	end
 	
 	if (iter%100 == 0) then
-		vdsrcnn:clearState()
-		vdsrcnn:float()
+	
 		torch.save("save/nn" .. iter .. ".cv", vdsrcnn)
-		vdsrcnn:type(dtype)
-		params, gradParams = vdsrcnn:getParameters()
-		collectgarbage()
 		
 	end
 	
@@ -274,6 +251,17 @@ for iter = 1, 60000 do
 	setBatch(iter)
 
 end
+
+--Validate the result
+local trainLRY = image.rgb2y(image.load("test.png", 3, "float")):type(dtype)
+local trainLR = image.rgb2yuv(image.load("test.png", 3, "float")):type(dtype)
+local trainDiff = vdsrcnn:forward(trainLRY)
+
+local trainSR = trainLR
+
+trainSR[1]:add(trainDiff[1])
+
+image.save("SR.png", image.yuv2rgb(trainSR))
 
 
 
